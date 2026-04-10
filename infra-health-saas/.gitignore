@@ -1,0 +1,8 @@
+# .gitignore
+# Docker
+*.pyc
+__pycache__/
+# Logs
+*.log
+# Env
+.env

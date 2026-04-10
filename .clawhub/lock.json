@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "skills": {
+    "web-search": {
+      "version": "1.0.0",
+      "installedAt": 1775711460077
+    },
+    "github": {
+      "version": "1.0.0",
+      "installedAt": 1775711489839
+    }
+  }
+}

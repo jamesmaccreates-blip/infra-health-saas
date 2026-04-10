@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  app:
+    build: .
+    ports:
+      - "5005:5000"
+    environment:
+      - METACLAW_URL=http://metaclaw:8000
+      - METACLAW_TOKEN=
+  metaclaw:
+    image: metaclaw/qwen2.5:7b-instruct-q4_K_M
+    container_name: metaclaw
+    ports:
+      - "8000:8000"
+    command: ["server","--port","8000"]
