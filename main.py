@@ -1,73 +1,68 @@
 import os
 import requests
+import smtplib
+from email.message import EmailMessage
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# Configuration: METACLAW_URL should be your ngrok address
+# --- CONFIGURATION ---
 METACLAW_URL = os.getenv("METACLAW_URL", "http://localhost:11434")
 METACLAW_TOKEN = os.getenv("METACLAW_TOKEN", "")
+# For Gmail SMTP (using an App Password for simplicity)
+SENDER_EMAIL = os.getenv("SENDER_EMAIL")
+SENDER_PASSWORD = os.getenv("SENDER_PASSWORD") # App Password from Google Account
+RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL")
 
-# Simple in-memory store for the /api/ping and /api/health routes
-hosts = {}
-
-@app.route('/api/ping', methods=['POST'])
-def ping():
-    data = request.get_json() or {}
-    host = data.get("host", "unknown")
-    hosts[host] = {"last_ping": "just now", "data": data}
-    return jsonify(success=True)
-
-@app.route('/api/health', methods=['GET'])
-def health():
-    return jsonify(hosts)
-
-@app.route('/api/metaclaw', methods=['POST'])
-def ask_metaclaw():
-    payload = request.get_json() or {}
-    question = payload.get("question", "")
-    
-    if not question:
-        return jsonify(error="no question provided"), 400
-
-    headers = {
-        "Authorization": f"Bearer {METACLAW_TOKEN}",
-        "Content-Type": "application/json"
-    }
+def send_email_alert(ticker, signal, analysis):
+    msg = EmailMessage()
+    msg.set_content(analysis)
+    msg['Subject'] = f"🚀 {signal} Alert: {ticker} (EaaS Sector)"
+    msg['From'] = SENDER_EMAIL
+    msg['To'] = RECIPIENT_EMAIL
 
     try:
-        # Standardize the URL to the Ollama OpenAI-compatible endpoint
-        base_url = METACLAW_URL.rstrip('/')
-        endpoint = f"{base_url}/v1/chat/completions"
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(SENDER_EMAIL, SENDER_PASSWORD)
+            smtp.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"Email failed: {e}")
+        return False
 
-        # Construct the request for Qwen 2.5
+@app.route('/api/alert', methods=['POST'])
+def stock_alert_workflow():
+    data = request.get_json() or {}
+    ticker = data.get("ticker", "HASI")
+    signal = data.get("signal", "Bullish")
+    
+    # 1. Get the Analysis from your EliteBook LLM
+    prompt = f"Analyze {ticker} stock signal ({signal}) under the Green-Grid Subsidy Act. Focus on 2026 ROI."
+    
+    try:
         r = requests.post(
-            endpoint,
+            f"{METACLAW_URL.rstrip('/')}/v1/chat/completions",
             json={
                 "model": "qwen2.5:7b-instruct-q4_K_M",
-                "messages": [{"role": "user", "content": question}],
-                "stream": False  # Prevents Render from timing out while waiting for chunks
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False
             },
-            headers=headers,
-            timeout=300  # Give your EliteBook 90 seconds to process the inference
+            timeout=300
         )
-        
         r.raise_for_status()
-        res = r.json()
+        analysis = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
         
-        # Safely extract the AI's response
-        choices = res.get("choices", [])
-        if choices:
-            msg = choices[0].get("message", {}).get("content", "")
-            return jsonify(response=msg)
+        # 2. Email the Analysis
+        if analysis and send_email_alert(ticker, signal, analysis):
+            return jsonify(status="Success", message=f"Alert sent for {ticker}")
         
-        return jsonify(error="empty response from model"), 500
+        return jsonify(status="Error", message="Analysis generated but email failed"), 500
 
-    except requests.exceptions.RequestException as e:
-        # This will reveal if ngrok is down or if the connection is being refused
-        return jsonify(error="connection to local AI failed", details=str(e)), 502
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+
+# Keep your existing /api/metaclaw and /api/ping routes here...
 
 if __name__ == "__main__":
-    # Render provides the PORT environment variable automatically
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
