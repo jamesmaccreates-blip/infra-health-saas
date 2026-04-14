@@ -1,0 +1,12 @@
+{
+  "name": "InfraHealth",
+  "description": "Monitors local system health and SaaS uptime",
+  "commands": {
+    "check_health": "python3 main.py --action health",
+    "check_stocks": "python3 main.py --action stocks"
+  },
+  "triggers": [
+    "how is the system performing?",
+    "check infra status"
+  ]
+}
