@@ -49,7 +49,7 @@ def ask_metaclaw():
                 "stream": False  # Prevents Render from timing out while waiting for chunks
             },
             headers=headers,
-            timeout=90  # Give your EliteBook 90 seconds to process the inference
+            timeout=300  # Give your EliteBook 90 seconds to process the inference
         )
         
         r.raise_for_status()
