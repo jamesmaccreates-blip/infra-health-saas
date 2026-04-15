@@ -50,3 +50,12 @@ if __name__ == "__main__":
     import os
     port = os.getenv('PORT', 5000)
     app.run(host='0.0.0.0', port=int(port))
+
+@app.route("/api/stripe-webhook", methods=["POST"])
+def stripe_webhook():
+    payload = request.data
+    with open("stripe_payloads.log", "ab") as f:
+        f.write(payload)
+        f.write(b"
+")
+    return jsonify(success=True)
